@@ -1,0 +1,1 @@
+Left,Right,fist_close,Up,Down,Double_Closed_Fist,Victory_Sign,Thumbs_Up,Pinch_using_thumb_and_index_finger,Rest
