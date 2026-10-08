@@ -241,7 +241,9 @@ DEFAULT_TASK_REPEATS = 3
 DEFAULT_RECORD_CSV = "realtime_collected_emg.csv"
 DEFAULT_RF_MODEL_ARTIFACT = "rf_realtime_model.joblib"
 MIN_RECORD_SAMPLE_RATIO = 0.80
-USB_SERIAL_BAUD = 115200
+USB_SERIAL_BAUD = 921600   # must match firmware Serial.begin(USB_SERIAL_BAUD)
+USB_STREAM_KEEPALIVE_S = 1.0
+USB_NO_DATA_WARN_S = 4.0
 SERIAL_BOOT_WAIT_S = 3.5
 SERIAL_RESPONSE_TIMEOUT_S = 15.0
 WIFI_STREAM_PORT = 5000
@@ -316,6 +318,7 @@ PLOT_AXIS_TICK_FONT_PT = 9
 class SerialWorker(QThread):
     batch_received = pyqtSignal(object)  # ndarray shape: (n_samples, n_channels)
     error_occurred = pyqtSignal(str)
+    stream_stalled = pyqtSignal(str)     # connected but no valid samples arriving
 
     def __init__(self, port_name, baud_rate, num_channels, batch_size=SERIAL_BATCH_SIZE):
         super().__init__()
@@ -327,6 +330,18 @@ class SerialWorker(QThread):
         self._running = True
         self._serial = None
         self._packet_sequence_counter = 0
+        self._last_keepalive = 0.0
+        self._last_valid_ts = 0.0
+        self._stall_reported = False
+
+    def _send_usb_command(self, text):
+        # Real ESP32 firmware streams only after USBSTART; the TCP simulator ignores it.
+        if self.is_socket_url or self._serial is None:
+            return
+        try:
+            self._serial.write((text + "\n").encode("ascii"))
+        except Exception:
+            pass
 
     def _emit_batch(self, batch):
         arr = np.asarray(batch, dtype=np.float32)
@@ -359,6 +374,21 @@ class SerialWorker(QThread):
                         except Exception:
                             pass
                         partial_line = ""
+                        self._last_valid_ts = time.monotonic()
+                        self._last_keepalive = 0.0
+                        self._stall_reported = False
+
+                    now = time.monotonic()
+                    if now - self._last_keepalive >= USB_STREAM_KEEPALIVE_S:
+                        self._send_usb_command("USBSTART")   # start + keepalive
+                        self._last_keepalive = now
+                    if (not self.is_socket_url and not self._stall_reported
+                            and now - self._last_valid_ts > USB_NO_DATA_WARN_S):
+                        self._stall_reported = True
+                        self.stream_stalled.emit(
+                            f"No valid {self.num_channels}-value samples from {self.port_name} for "
+                            f"{USB_NO_DATA_WARN_S:.0f}s. Check that the firmware with wired "
+                            f"(USBSTART) support is flashed and the baud is {self.baud_rate}.")
 
                     waiting = self._serial.in_waiting
                     chunk = self._serial.read(waiting if waiting else 1)
@@ -375,6 +405,9 @@ class SerialWorker(QThread):
                         if not line:
                             continue
 
+                        # Skip firmware log lines (e.g. "EMG Frame Rate: ...", "ACK|...").
+                        if not (line[0].isdigit() or line[0] in "-+."):
+                            continue
                         parts = line.replace(",", " ").split()
                         if len(parts) < self.num_channels:
                             continue
@@ -384,6 +417,7 @@ class SerialWorker(QThread):
                         except ValueError:
                             continue
 
+                        self._last_valid_ts = time.monotonic()
                         batch.append(vals)
                         if len(batch) >= self.batch_size:
                             self._emit_batch(batch)
@@ -404,6 +438,7 @@ class SerialWorker(QThread):
                 self._emit_batch(batch)
 
         finally:
+            self._send_usb_command("USBSTOP")
             self._close_serial()
 
     def stop(self):
@@ -5175,11 +5210,13 @@ class EMGVisualizer(QMainWindow):
     def active_emg_channel_count(self):
         if self.connection_medium == "wireless":
             return WIRELESS_EMG_CHANNELS
+        if self.num_channels >= WIRELESS_TOTAL_CHANNELS:
+            return WIRELESS_EMG_CHANNELS   # wired 11-ch = 8 EMG + roll/pitch/yaw
         return int(self.num_channels)
 
     def channel_display_name(self, index):
         idx = int(index)
-        if self.connection_medium == "wireless" and self.num_channels >= WIRELESS_TOTAL_CHANNELS:
+        if self.num_channels >= WIRELESS_TOTAL_CHANNELS:
             if idx == 8:
                 return "ROLL"
             if idx == 9:
@@ -5520,7 +5557,7 @@ class EMGVisualizer(QMainWindow):
             QMessageBox.warning(self, "No Port", "Please select a valid serial port.")
             return
 
-        self.wired_channel_count = int(max(2, min(9, self.channel_count)))
+        self.wired_channel_count = int(max(2, min(WIRELESS_TOTAL_CHANNELS, self.channel_count)))
         self.channel_count = self.wired_channel_count
         self.reset_runtime_state_for_channels(self.channel_count)
         if self.analysis_window is not None:
@@ -5531,6 +5568,7 @@ class EMGVisualizer(QMainWindow):
             self.serial_worker = SerialWorker(port_name, DEFAULT_BAUD_RATE, self.num_channels)
             self.serial_worker.batch_received.connect(self.on_serial_batch)
             self.serial_worker.error_occurred.connect(self.on_serial_error)
+            self.serial_worker.stream_stalled.connect(self.on_serial_stalled)
             self.serial_worker.start()
 
             self.current_port_name = port_name
@@ -6004,7 +6042,7 @@ class EMGVisualizer(QMainWindow):
             self.sync_calibration_dialog_state()
             return
 
-        new_count = int(max(2, min(9, count)))
+        new_count = int(max(2, min(WIRELESS_TOTAL_CHANNELS, count)))
         if not (self.is_connected and self.port_config_applied):
             QMessageBox.information(
                 self,
@@ -6041,6 +6079,7 @@ class EMGVisualizer(QMainWindow):
             self.serial_worker = SerialWorker(port_name, DEFAULT_BAUD_RATE, self.num_channels)
             self.serial_worker.batch_received.connect(self.on_serial_batch)
             self.serial_worker.error_occurred.connect(self.on_serial_error)
+            self.serial_worker.stream_stalled.connect(self.on_serial_stalled)
             self.serial_worker.start()
 
             self.is_connected = True
@@ -7957,6 +7996,11 @@ class EMGVisualizer(QMainWindow):
 
         batch = np.asarray(payload, dtype=np.float32)
         return batch, np.zeros((0,), dtype=np.int64), {}
+
+    def on_serial_stalled(self, message):
+        self.set_status("Wired: no data received", "#f44336")
+        if self.calibration_active:
+            QMessageBox.warning(self, "No Wired Data", message)
 
     def on_serial_batch(self, payload):
         if self.data_buffer is None or self.raw_data_buffer is None:

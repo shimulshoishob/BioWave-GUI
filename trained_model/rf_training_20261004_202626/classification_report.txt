@@ -1,0 +1,16 @@
+                                    precision     recall   f1-score    support
+
+                Double_Closed_Fist     0.3790     0.8246     0.5193         57
+                              Down     0.0909     0.1404     0.1103         57
+                              Left     0.2941     0.5752     0.3892        113
+Pinch_using_thumb_and_index_finger     0.0251     0.0877     0.0391         57
+                              Rest     0.8302     0.6420     0.7241       1028
+                             Right     0.1316     0.1786     0.1515         56
+                         Thumbs_Up     0.3586     0.7895     0.4932        114
+                                Up     0.0923     0.0702     0.0797        171
+                      Victory_Sign     0.9118     0.1088     0.1944        285
+                        fist_close     0.0132     0.0179     0.0152         56
+
+                          accuracy                           0.4659       1994
+                         macro avg     0.3127     0.3435     0.2716       1994
+                      weighted avg     0.6216     0.4659     0.4820       1994

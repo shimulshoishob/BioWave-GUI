@@ -1,0 +1,240 @@
+{
+  "created_at_text": "2026-10-04 20:31:00",
+  "accuracy": 0.8139418254764292,
+  "train_windows": 8281,
+  "test_windows": 1994,
+  "num_features": 231,
+  "classes": [
+    "Double_Closed_Fist",
+    "Down",
+    "Left",
+    "Pinch_using_thumb_and_index_finger",
+    "Rest",
+    "Right",
+    "Thumbs_Up",
+    "Up",
+    "Victory_Sign",
+    "fist_close"
+  ],
+  "class_window_counts": {
+    "Double_Closed_Fist": 511,
+    "Down": 507,
+    "Left": 509,
+    "Pinch_using_thumb_and_index_finger": 512,
+    "Rest": 5683,
+    "Right": 511,
+    "Thumbs_Up": 506,
+    "Up": 508,
+    "Victory_Sign": 510,
+    "fist_close": 518
+  },
+  "segment_count_by_file": {
+    "dataset/DataCollectiom Fall-26/Keya_Left-Day-01_20261004_144450/emg_data_Keya_Left-Day-01_20261004_144450.csv": 162
+  },
+  "channel_count_by_file": {
+    "dataset/DataCollectiom Fall-26/Keya_Left-Day-01_20261004_144450/emg_data_Keya_Left-Day-01_20261004_144450.csv": 11
+  },
+  "input_channels": 11,
+  "skipped_channel_segments": 0,
+  "confusion_matrix": [
+    [
+      30,
+      0,
+      0,
+      7,
+      6,
+      0,
+      2,
+      0,
+      0,
+      12
+    ],
+    [
+      0,
+      40,
+      0,
+      0,
+      4,
+      12,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      80,
+      0,
+      9,
+      0,
+      0,
+      23,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      41,
+      3,
+      0,
+      0,
+      2,
+      9,
+      0
+    ],
+    [
+      7,
+      16,
+      17,
+      31,
+      901,
+      12,
+      17,
+      8,
+      10,
+      14
+    ],
+    [
+      0,
+      2,
+      0,
+      0,
+      5,
+      50,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      2,
+      0,
+      0,
+      36,
+      18,
+      2,
+      53,
+      0,
+      0,
+      3
+    ],
+    [
+      0,
+      0,
+      4,
+      1,
+      17,
+      0,
+      0,
+      146,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      3,
+      26,
+      1,
+      0,
+      9,
+      243,
+      0
+    ],
+    [
+      3,
+      0,
+      0,
+      4,
+      7,
+      0,
+      4,
+      0,
+      0,
+      39
+    ]
+  ],
+  "classification_report_text": "                                    precision     recall   f1-score    support\n\n                Double_Closed_Fist     0.6977     0.5263     0.6000         57\n                              Down     0.6897     0.7143     0.7018         56\n                              Left     0.7843     0.7080     0.7442        113\nPinch_using_thumb_and_index_finger     0.3333     0.7321     0.4581         56\n                              Rest     0.9046     0.8722     0.8881       1033\n                             Right     0.6494     0.8772     0.7463         57\n                         Thumbs_Up     0.6974     0.4649     0.5579        114\n                                Up     0.7766     0.8690     0.8202        168\n                      Victory_Sign     0.9240     0.8587     0.8901        283\n                        fist_close     0.5735     0.6842     0.6240         57\n\n                          accuracy                           0.8139       1994\n                         macro avg     0.7030     0.7307     0.7031       1994\n                      weighted avg     0.8332     0.8139     0.8185       1994",
+  "classification_report_dict": {
+    "Double_Closed_Fist": {
+      "precision": 0.6976744186046512,
+      "recall": 0.5263157894736842,
+      "f1-score": 0.6,
+      "support": 57.0
+    },
+    "Down": {
+      "precision": 0.6896551724137931,
+      "recall": 0.7142857142857143,
+      "f1-score": 0.7017543859649122,
+      "support": 56.0
+    },
+    "Left": {
+      "precision": 0.7843137254901961,
+      "recall": 0.7079646017699115,
+      "f1-score": 0.7441860465116279,
+      "support": 113.0
+    },
+    "Pinch_using_thumb_and_index_finger": {
+      "precision": 0.3333333333333333,
+      "recall": 0.7321428571428571,
+      "f1-score": 0.4581005586592179,
+      "support": 56.0
+    },
+    "Rest": {
+      "precision": 0.9046184738955824,
+      "recall": 0.872216844143272,
+      "f1-score": 0.8881222276983736,
+      "support": 1033.0
+    },
+    "Right": {
+      "precision": 0.6493506493506493,
+      "recall": 0.8771929824561403,
+      "f1-score": 0.746268656716418,
+      "support": 57.0
+    },
+    "Thumbs_Up": {
+      "precision": 0.6973684210526315,
+      "recall": 0.4649122807017544,
+      "f1-score": 0.5578947368421052,
+      "support": 114.0
+    },
+    "Up": {
+      "precision": 0.776595744680851,
+      "recall": 0.8690476190476191,
+      "f1-score": 0.8202247191011236,
+      "support": 168.0
+    },
+    "Victory_Sign": {
+      "precision": 0.9239543726235742,
+      "recall": 0.8586572438162544,
+      "f1-score": 0.8901098901098901,
+      "support": 283.0
+    },
+    "fist_close": {
+      "precision": 0.5735294117647058,
+      "recall": 0.6842105263157895,
+      "f1-score": 0.624,
+      "support": 57.0
+    },
+    "accuracy": 0.8139418254764292,
+    "macro avg": {
+      "precision": 0.7030393723209968,
+      "recall": 0.7306946459152996,
+      "f1-score": 0.7030661221603668,
+      "support": 1994.0
+    },
+    "weighted avg": {
+      "precision": 0.8331516894379452,
+      "recall": 0.8139418254764292,
+      "f1-score": 0.8184951487011578,
+      "support": 1994.0
+    }
+  },
+  "model_file": "rf_realtime_model.joblib",
+  "run_dir": "trained_model/rf_training_20261004_203100",
+  "model_path": "trained_model/rf_training_20261004_203100/rf_realtime_model.joblib"
+}

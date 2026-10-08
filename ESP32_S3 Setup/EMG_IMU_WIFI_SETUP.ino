@@ -65,6 +65,11 @@ static const unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000;
 static const unsigned long WIFI_RETRY_INTERVAL_MS = 10000;
 static const unsigned long STREAM_KEEPALIVE_TIMEOUT_MS = 5000;
 static const unsigned long CHALLENGE_TTL_MS = 30000;
+// USB serial baud. Must match the GUI (DEFAULT_BAUD_RATE / USB_SERIAL_BAUD).
+// 500 Hz x 11 channels of CSV text is ~30 KB/s, far beyond 115200 baud.
+static const uint32_t USB_SERIAL_BAUD = 921600;
+// A wired session ends if the GUI stops sending USBSTART/USBPING keepalives.
+static const unsigned long USB_STREAM_TIMEOUT_MS = 5000;
 static const char *FW_VERSION = "emg-imu-1.6.0";
 
 // Change this before flashing.
@@ -126,6 +131,8 @@ TaskHandle_t imuTaskHandle = nullptr;
 portMUX_TYPE imuMutex = portMUX_INITIALIZER_UNLOCKED;
 
 volatile bool targetLocked = false;
+volatile bool usbStreaming = false;           // wired CSV streaming over USB serial
+volatile unsigned long lastUsbCommandMs = 0;
 volatile unsigned long lastAuthorizedCommandMs = 0;
 volatile unsigned long lastWiFiRetryMs = 0;
 IPAddress streamTargetIP;
@@ -666,6 +673,23 @@ void processSerialCommand(const String &line) {
     return;
   }
 
+  if (line == "USBSTART" || line == "USBPING") {
+    // Wired mode: stream "e1..e8,roll,pitch,yaw" CSV lines (11 values) at 500 Hz.
+    // USBSTART is repeated by the GUI as a keepalive, so only reset on a new session.
+    if (!usbStreaming) {
+      flushFrameQueue();
+      usbStreaming = true;
+    }
+    lastUsbCommandMs = millis();
+    return;
+  }
+
+  if (line == "USBSTOP") {
+    usbStreaming = false;
+    flushFrameQueue();
+    return;
+  }
+
   if (line.startsWith("PROVISION|")) {
     if (countTokens(line) != 3) {
       Serial.println("ERR|BAD_FORMAT");
@@ -775,6 +799,21 @@ void queueFrame(const EmgImuPacket &packet) {
   queueDropsThisWindow++;
 }
 
+// One CSV line per frame: 8 raw ADC counts, then roll,pitch,yaw in degrees.
+void sendPacketUsb(const EmgImuPacket &packet) {
+  char line[96];
+  for (uint8_t i = 0; i < packet.header.frameCount; ++i) {
+    const EmgImuFrame &f = packet.frames[i];
+    int n = snprintf(line, sizeof(line), "%u,%u,%u,%u,%u,%u,%u,%u,%.2f,%.2f,%.2f\n",
+                     f.emg[0], f.emg[1], f.emg[2], f.emg[3], f.emg[4], f.emg[5], f.emg[6], f.emg[7],
+                     f.roll, f.pitch, f.yaw);
+    if (n > 0) {
+      Serial.write(reinterpret_cast<const uint8_t *>(line), static_cast<size_t>(n));
+    }
+  }
+  udpPacketsSentThisWindow++;
+}
+
 void sendFrameUdp(const void *frameData, size_t frameSize) {
   udp.beginPacket(streamTargetIP, streamTargetPort);
   udp.write(reinterpret_cast<const uint8_t *>(frameData), frameSize);
@@ -783,6 +822,9 @@ void sendFrameUdp(const void *frameData, size_t frameSize) {
 }
 
 void printDiagnosticsIfDue() {
+  if (usbStreaming) {
+    return;   // keep the serial stream pure CSV
+  }
   unsigned long nowMs = millis();
   if (diagnosticsWindowStartMs == 0) {
     diagnosticsWindowStartMs = nowMs;
@@ -877,7 +919,7 @@ void acquisitionTask(void *parameter) {
 
     emgFramesThisWindow++;
 
-    if (targetLocked && WiFi.status() == WL_CONNECTED) {
+    if (usbStreaming || (targetLocked && WiFi.status() == WL_CONNECTED)) {
       packet.frames[packetFrameIndex] = frame;
       packetFrameIndex++;
 
@@ -925,9 +967,19 @@ void networkTask(void *parameter) {
     handleSerialCommands();
     handleControlPacket();
     monitorWiFiState();
-    bool streamActive = targetLocked && WiFi.status() == WL_CONNECTED;
+    bool wifiStreamActive = targetLocked && WiFi.status() == WL_CONNECTED;
+    bool streamActive = wifiStreamActive;
 
-    if (streamActive) {
+    if (usbStreaming) {
+      if ((millis() - lastUsbCommandMs) > USB_STREAM_TIMEOUT_MS) {
+        usbStreaming = false;   // GUI went away; fall back to normal logging
+      } else {
+        // Drain everything queued so USB output never lags behind acquisition.
+        while (xQueueReceive(frameQueue, &packet, 0) == pdTRUE) {
+          sendPacketUsb(packet);
+        }
+      }
+    } else if (streamActive) {
       uint8_t packetsSentThisPass = 0;
       while (packetsSentThisPass < MAX_UDP_PACKETS_PER_PASS && xQueueReceive(frameQueue, &packet, 0) == pdTRUE) {
         sendFrameUdp(&packet, sizeof(packet));
@@ -937,7 +989,7 @@ void networkTask(void *parameter) {
       flushFrameQueue();
     }
 
-    if (streamActive && (millis() - lastAuthorizedCommandMs) > STREAM_KEEPALIVE_TIMEOUT_MS) {
+    if (wifiStreamActive && (millis() - lastAuthorizedCommandMs) > STREAM_KEEPALIVE_TIMEOUT_MS) {
       Serial.println("Keepalive timed out. Stopping stream.");
       clearStreamTarget();
     }
@@ -948,7 +1000,7 @@ void networkTask(void *parameter) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(USB_SERIAL_BAUD);
   delay(1500);
 
   deviceId = buildDeviceId();

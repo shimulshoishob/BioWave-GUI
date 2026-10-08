@@ -1,0 +1,11 @@
+actual/predicted,Double_Closed_Fist,Down,Left,Pinch_using_thumb_and_index_finger,Rest,Right,Thumbs_Up,Up,Victory_Sign,fist_close
+Double_Closed_Fist,43,0,5,0,0,5,0,0,0,4
+Down,0,45,0,0,11,0,0,0,0,1
+Left,0,39,52,0,10,0,12,0,0,0
+Pinch_using_thumb_and_index_finger,0,4,0,34,11,0,7,0,0,0
+Rest,27,9,47,14,805,14,90,3,3,19
+Right,0,0,0,0,2,8,0,0,0,47
+Thumbs_Up,7,7,7,0,53,0,34,1,0,3
+Up,4,0,0,6,8,6,4,128,11,2
+Victory_Sign,29,0,3,144,32,2,2,24,39,8
+fist_close,21,0,0,1,14,0,0,18,1,1
